@@ -15,6 +15,16 @@ angular.module("dragtable", [])
                 var headerElement = angular.element(headers[i]);
                 headerElement.on('touchstart mousedown', dragStart);
             }
+            
+            // Check in link 
+            restore();
+            
+            // Watch binded model
+            scope.$watch('draggable', function(newValue, oldValue) {
+                if(newValue != oldValue && newValue != scope.order) {
+                    restore();
+                }
+            });
     
             function dragStart($event) {
                 // Prevent default dragging of selected content
@@ -137,6 +147,34 @@ angular.module("dragtable", [])
                         $target: targetCol
                     });
                     scope.$apply();
+                }
+            }
+            
+            function restore() {
+                if(angular.isUndefined(scope.draggable)) scope.draggable = scope.order;
+                
+                if(scope.order != scope.draggable) {
+                    console.log("Draggable: %j", scope.draggable);
+                    console.log("Order: %j", scope.order);
+                    console.log("WHAT");
+                    
+                    // Base : 1, 2, 3, 4
+                    // Target: 2, 1, 4, 3
+                    // Movements:
+                    // 2 to 1 => 0 to 1
+                    // 4 to 3 => 2 to 3
+                    angular.forEach(scope.draggable, function(targetIndex, targetItem) {
+                       angular.forEach(scope.order, function(baseIndex, baseItem) {
+                           if(targetItem == baseItem && baseIndex != targetIndex) {
+                               dragtableHelper.moveColumn(scope.table, baseIndex, targetIndex);
+                               dragtableHelper.arrayMove(scope.order, baseIndex, targetIndex);
+                               return;
+                           }
+                       });
+                    });
+                    
+                    console.log("Draggable: %j", scope.draggable);
+                    console.log("Order: %j", scope.order);
                 }
             }
         }
