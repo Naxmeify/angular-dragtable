@@ -2,8 +2,8 @@ angular.module("dragtable", [])
 .value('mode', 'extension')
 .value('version', 'v0.1.0')
 .directive('draggable', [
-    '$window', '$document',
-    function($window, $document) {
+    '$window', '$document', 'dragtableHelper',
+    function($window, $document, dragtableHelper) {
         function make_draggable(scope, elem) {
             scope.table = elem[0];
             scope.order = [];
@@ -12,7 +12,8 @@ angular.module("dragtable", [])
             var headers = scope.table.tHead.rows[0].cells;
             for (var i = 0; i < headers.length; i++) {
                 scope.order.push(i);
-                headers[i].onmousedown = dragStart;
+                var headerElement = angular.element(headers[i]);
+                headerElement.on('touchstart mousedown', dragStart);
             }
     
             function dragStart($event) {
@@ -21,48 +22,36 @@ angular.module("dragtable", [])
     
                 // Prepare the drag object
                 scope.origNode = $event.target;
-                var pos = eventPosition($event);
+                var pos = dragtableHelper.eventPosition($event);
                 // Drag the entire table cell, not just the element that was clicked.
-                scope.origNode = findUp(scope.origNode, /T[DH]/);
-                scope.startCol = findColumn(scope.table, pos.x);
+                scope.origNode = dragtableHelper.findUp(scope.origNode, /T[DH]/);
+                scope.startCol = dragtableHelper.findColumn(scope.table, pos.x);
                 if (scope.startCol === -1) {
                     return;
                 }
-                var new_elt = fullCopy(scope.table, false);
+                
+                var new_elt = dragtableHelper.fullCopy(scope.table, false);
                 new_elt.style.margin = '0';
-                // Copy the entire column
-                var copySectionColumn = function(sec, col) {
-                    var new_sec = fullCopy(sec, false);
-                    forEach(sec.rows, function(row) {
-                        var cell = row.cells[col];
-                        var new_tr = fullCopy(row, false);
-                        if (row.offsetHeight) {
-                            new_tr.style.height = row.offsetHeight + "px";
-                        }
-                        var new_td = fullCopy(cell, true);
-                        if (cell.offsetWidth) {
-                            new_td.style.width = cell.offsetWidth + "px";
-                        }
-                        new_tr.appendChild(new_td);
-                        new_sec.appendChild(new_tr);
-                    });
-                    return new_sec;
-                };
+                
                 // First the heading
                 if (scope.table.tHead) {
-                    new_elt.appendChild(copySectionColumn(
+                    new_elt.appendChild(dragtableHelper.copySectionColumn(
                         scope.table.tHead, scope.startCol));
                 }
-                forEach(scope.table.tBodies, function(tb) {
+                
+                // Next every body
+                dragtableHelper.forEach(scope.table.tBodies, function(tb) {
                     new_elt.appendChild(
-                        copySectionColumn(
+                        dragtableHelper.copySectionColumn(
                             tb, scope.startCol));
                 });
+                
+                // Last the footer
                 if (scope.table.tFoot) {
-                    new_elt.appendChild(copySectionColumn(
+                    new_elt.appendChild(dragtableHelper.copySectionColumn(
                         scope.table.tFoot, scope.startCol));
                 }
-                var obj_pos = absolutePosition(scope.origNode, true);
+                var obj_pos = dragtableHelper.absolutePosition(scope.origNode, true);
                 new_elt.style.position = "absolute";
                 new_elt.style.left = obj_pos.x + "px";
                 new_elt.style.top = obj_pos.y + "px";
@@ -96,7 +85,7 @@ angular.module("dragtable", [])
     
             function dragMove($event) {
                 // Get cursor position with respect to the page.
-                var pos = eventPosition($event);
+                var pos = dragtableHelper.eventPosition($event);
     
                 var dx = scope.cursorStartX - pos.x;
                 var dy = scope.cursorStartY - pos.y;
@@ -125,17 +114,24 @@ angular.module("dragtable", [])
     
                 // Determine whether the drag ended over the table,
                 // and over which column.
-                var pos = eventPosition($event);
-                var table_pos = absolutePosition(scope.table);
+                var pos = dragtableHelper.eventPosition($event);
+                var table_pos = dragtableHelper.absolutePosition(scope.table);
                 if (pos.y < table_pos.y ||
                     pos.y > table_pos.y + scope.table.offsetHeight) {
                     return;
                 }
-                var targetCol = findColumn(scope.table, pos.x);
+                var targetCol = dragtableHelper.findColumn(scope.table, pos.x);
                 if (targetCol !== -1 && targetCol !== scope.startCol) {
-                    moveColumn(scope.table,
+                    dragtableHelper.moveColumn(scope.table,
                                scope.startCol,
                                targetCol);
+                    // Update order
+                    dragtableHelper.arrayMove(scope.order, scope.startCol, targetCol);
+                    
+                    // update scope.draggable
+                    scope.draggable = scope.order;
+                    
+                    // Call on drag end event
                     scope.onDragEnd({
                         $start: scope.startCol,
                         $target: targetCol
@@ -143,150 +139,195 @@ angular.module("dragtable", [])
                     scope.$apply();
                 }
             }
-    
-            function moveColumn(table, sIdx, fIdx) {
-                var row;
-                var i=table.rows.length;
-                while (i--) {
-                    row = table.rows[i];
-                    var x = row.removeChild(row.cells[sIdx]);
-                    if (fIdx < row.cells.length) {
-                        row.insertBefore(x, row.cells[fIdx]);
-                    }
-                    else {
-                        row.appendChild(x);
-                    }
-                }
-    
-                // For whatever reason
-                // sorttable tracks column indices this way.
-                var headrow = table.tHead.rows[0].cells;
-                var j;
-                for (j=0; j<headrow.length; j++) {
-                    headrow[j].sorttable_columnindex = j;
-                }
-            }
-    
-            function fullCopy(elt, deep) {
-                var new_elt = elt.cloneNode(deep);
-                new_elt.className = elt.className;
-                forEach(elt.style, function(value, key) {
-                    if (value === null) {
-                        return;
-                    }
-                    if (typeof(value) === "string" && value.length === 0) {
-                            return;
-                        }
-                    new_elt.style[key] = elt.style[key];
-                });
-                return new_elt;
-            }
-    
-            function findColumn(table, x) {
-                var header = table.tHead.rows[0].cells;
-                var i;
-                for (i = 0; i < header.length; i++) {
-                    var pos = absolutePosition(header[i]);
-                    if (pos.x <= x && x <= pos.x + header[i].offsetWidth){
-                        return i;
-                    }
-                }
-                return -1;
-            }
-    
-            function eventPosition($event) {
-                return {x: $event.pageX, y: $event.pageY};
-            }
-    
-            function absolutePosition(elt, stopAtRelative) {
-                var ex = 0, ey = 0;
-                do {
-                    var curStyle = $window.getComputedStyle(elt, '');
-                    if (stopAtRelative && curStyle.position === 'relative') {
-                        break;
-                    } else if (curStyle.position === 'fixed') {
-                        // Get the fixed el's offset
-                        ex += parseInt(curStyle.left, 10);
-                        ey += parseInt(curStyle.top, 10);
-                        // Compensate for scrolling
-                        ex += $document[0].body.scrollLeft;
-                        ey += $document[0].body.scrollTop;
-                        // End the loop
-                        break;
-                    } else {
-                        ex += elt.offsetLeft;
-                        ey += elt.offsetTop;
-                    }
-                    elt = elt.offsetParent;
-                } while (elt);
-                return {x: ex, y: ey};
-            }
-    
-            function findUp(elt, tag) {
-                do {
-                    if (elt.nodeName &&
-                        elt.nodeName.search(tag) !== -1) {
-                        return elt;
-                    }
-                    elt = elt.parentNode;
-                } while (elt);
-            }
-    
-            function fnForEach(object, block, context) {
-                var key;
-                for(key in object) {
-                    if(object.hasOwnProperty(key)){
-                        block.call(context, object[key], key, object);
-                    }
-                }
-            }
-    
-            function strForEach(object, block, context) {
-                var array = object.split("");
-                var i;
-                for (i = 0; i < array.length; i++) {
-                    block.call(context, array[i], i, array);
-                }
-            }
-    
-            function forEach(object, block, context) {
-                if (object) {
-                    var resolve = Object; // default
-                    var isObjectFunction = object instanceof Function;
-                    if (!isObjectFunction && object.forEach instanceof Function) {
-                        // the object implements a custom forEach method so use that
-                        object.forEach(block, context);
-                        return;
-                    }
-                    if (isObjectFunction) {
-                        // functions have a "length" property
-                        resolve = fnForEach;
-                    } else if (typeof object === "string") {
-                        resolve = strForEach;
-                    } else if (typeof object.length === "number") {
-                        // the object is array-like
-                        resolve = arForEach;
-                    }
-                    resolve(object, block, context);
-                }
-            }
-    
-            function arForEach(array, block, context) {
-                // array-like enumeration
-                var i;
-                for (i = 0; i < array.length; i++) {
-                    block.call(context, array[i], i, array);
-                }
-            }
-    
         }
-    
+        
         return {
             restrict: "A",
             scope: {
+                draggable: '=',
                 onDragEnd: '&'
             },
-            link: make_draggable
+            link: make_draggable,
+        };
+    }
+])
+.factory('dragtableHelper', [
+    '$window', '$document',
+    function($window, $document) {
+        
+        var arrayMove = function(array, startIndex, toIndex) {
+          var itemToMove = array[startIndex];
+          array.splice(startIndex, 1);
+          array.splice(toIndex, 0, itemToMove);
+        };
+        
+        // Copy the entire column
+        var copySectionColumn = function(sec, col) {
+            var new_sec = fullCopy(sec, false);
+            forEach(sec.rows, function(row) {
+                var cell = row.cells[col];
+                var new_tr = fullCopy(row, false);
+                if (row.offsetHeight) {
+                    new_tr.style.height = row.offsetHeight + "px";
+                }
+                var new_td = fullCopy(cell, true);
+                if (cell.offsetWidth) {
+                    new_td.style.width = cell.offsetWidth + "px";
+                }
+                new_tr.appendChild(new_td);
+                new_sec.appendChild(new_tr);
+            });
+            return new_sec;
+        };
+        
+        var moveColumn = function(table, sIdx, fIdx) {
+            var row;
+            var i=table.rows.length;
+            while (i--) {
+                row = table.rows[i];
+                var x = row.removeChild(row.cells[sIdx]);
+                if (fIdx < row.cells.length) {
+                    row.insertBefore(x, row.cells[fIdx]);
+                }
+                else {
+                    row.appendChild(x);
+                }
+            }
+
+            // For whatever reason
+            // sorttable tracks column indices this way.
+            var headrow = table.tHead.rows[0].cells;
+            var j;
+            for (j=0; j<headrow.length; j++) {
+                headrow[j].sorttable_columnindex = j;
+            }
+        };
+        
+        var fullCopy = function(elt, deep) {
+            var new_elt = elt.cloneNode(deep);
+            new_elt.className = elt.className;
+            forEach(elt.style, function(value, key) {
+                if (value === null) {
+                    return;
+                }
+                if (typeof(value) === "string" && value.length === 0) {
+                        return;
+                    }
+                new_elt.style[key] = elt.style[key];
+            });
+            return new_elt;
+        };
+        
+        var findColumn = function(table, x) {
+            var header = table.tHead.rows[0].cells;
+            var i;
+            for (i = 0; i < header.length; i++) {
+                var pos = absolutePosition(header[i]);
+                if (pos.x <= x && x <= pos.x + header[i].offsetWidth){
+                    return i;
+                }
+            }
+            return -1;
+        };
+        
+        var eventPosition = function($event) {
+            return {x: $event.pageX, y: $event.pageY};
+        };
+        
+        var absolutePosition = function(elt, stopAtRelative) {
+            var ex = 0, ey = 0;
+            do {
+                var curStyle = $window.getComputedStyle(elt, '');
+                if (stopAtRelative && curStyle.position === 'relative') {
+                    break;
+                } else if (curStyle.position === 'fixed') {
+                    // Get the fixed el's offset
+                    ex += parseInt(curStyle.left, 10);
+                    ey += parseInt(curStyle.top, 10);
+                    // Compensate for scrolling
+                    ex += $document[0].body.scrollLeft;
+                    ey += $document[0].body.scrollTop;
+                    // End the loop
+                    break;
+                } else {
+                    ex += elt.offsetLeft;
+                    ey += elt.offsetTop;
+                }
+                elt = elt.offsetParent;
+            } while (elt);
+            return {x: ex, y: ey};
+        };
+        
+        var findUp = function(elt, tag) {
+            do {
+                if (elt.nodeName &&
+                    elt.nodeName.search(tag) !== -1) {
+                    return elt;
+                }
+                elt = elt.parentNode;
+            } while (elt);
+        };
+        
+        var strForEach = function(object, block, context) {
+            var array = object.split("");
+            var i;
+            for (i = 0; i < array.length; i++) {
+                block.call(context, array[i], i, array);
+            }
+        };
+        
+        var fnForEach = function(object, block, context) {
+            var key;
+            for(key in object) {
+                if(object.hasOwnProperty(key)){
+                    block.call(context, object[key], key, object);
+                }
+            }
+        };
+        
+        var forEach = function(object, block, context) {
+            if (object) {
+                var resolve = Object; // default
+                var isObjectFunction = object instanceof Function;
+                if (!isObjectFunction && object.forEach instanceof Function) {
+                    // the object implements a custom forEach method so use that
+                    object.forEach(block, context);
+                    return;
+                }
+                if (isObjectFunction) {
+                    // functions have a "length" property
+                    resolve = fnForEach;
+                } else if (typeof object === "string") {
+                    resolve = strForEach;
+                } else if (typeof object.length === "number") {
+                    // the object is array-like
+                    resolve = arForEach;
+                }
+                resolve(object, block, context);
+            }
+        };
+        
+        var arForEach = function(array, block, context) {
+            // array-like enumeration
+            var i;
+            for (i = 0; i < array.length; i++) {
+                block.call(context, array[i], i, array);
+            }
+        };
+        
+        return {
+            arrayMove: arrayMove,
+            copySectionColumn: copySectionColumn,
+            moveColumn: moveColumn,
+            fullCopy: fullCopy,
+            findColumn: findColumn,
+            eventPosition: eventPosition,
+            absolutePosition: absolutePosition,
+            findUp: findUp,
+            strForEach: strForEach,
+            fnForEach: fnForEach,
+            forEach: forEach,
+            arForEach: arForEach
         };
     }
 ]);
