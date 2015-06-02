@@ -58,24 +58,26 @@ angular.module('app').controller('Controller', [
 ```
 
 ```HTML
-<table draggable="myTableColumnOrder">
-    <thead>
-        <tr>
-            <th id="x">Name</th>
-            <th>Favorite Color</th><th>Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>Dan</td>
-            <td>Blue</td><td>1984-07-12</td>
-        </tr>
-        <tr>
-            <td>Alice</td>
-            <td>Green</td><td>1980-07-22</td>
-        </tr>
-    </tbody>
-</table>
+<div ng-controller="Controller">
+    <table draggable="myTableColumnOrder">
+        <thead>
+            <tr>
+                <th id="x">Name</th>
+                <th>Favorite Color</th><th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Dan</td>
+                <td>Blue</td><td>1984-07-12</td>
+            </tr>
+            <tr>
+                <td>Alice</td>
+                <td>Green</td><td>1980-07-22</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 ```
 
 ## About
