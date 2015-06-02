@@ -12,12 +12,12 @@ AngularJS
 
 1. Load the module `angular.module('myModule', ['dragtable']);`
 
-2. Add the `draggable` attribute to any table.
+2. Add the `draggable` attribute to any table and set it to anything like ``` draggable="anything" ```.
 
 Example:
 
 ```HTML
-<table draggable>
+<table draggable="order">
     <thead>
         <tr>
             <th id="x">Name</th>

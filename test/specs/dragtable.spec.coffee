@@ -11,7 +11,7 @@ describe 'Module: dragtable', ->
     $compile = null
     $rootScope = null
     
-    html = "<table draggable><thead><tr></tr></thead></table>"
+    html = "<table draggable='order'><thead><tr></tr></thead></table>"
     
     beforeEach inject (_$compile_, _$rootScope_) ->
       $compile = _$compile_
