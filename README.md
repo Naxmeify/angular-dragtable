@@ -16,25 +16,67 @@ AngularJS
 
 Example:
 
-    <table draggable>
-        <thead>
-            <tr>
-                <th id="x">Name</th>
-                <th>Favorite Color</th><th>Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>Dan</td>
-                <td>Blue</td><td>1984-07-12</td>
-            </tr>
-            <tr>
-                <td>Alice</td>
-                <td>Green</td><td>1980-07-22</td>
-            </tr>
-        </tbody>
-    </table>
+```HTML
+<table draggable>
+    <thead>
+        <tr>
+            <th id="x">Name</th>
+            <th>Favorite Color</th><th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Dan</td>
+            <td>Blue</td><td>1984-07-12</td>
+        </tr>
+        <tr>
+            <td>Alice</td>
+            <td>Green</td><td>1980-07-22</td>
+        </tr>
+    </tbody>
+</table>
+```
 
+
+## Use with scope variable
+
+1. Load module
+2. Add attribute but with scope variable now
+
+Example: 
+
+```JavaScript
+angular.module('app', ['dragtable']);
+angular.module('app').controller('Controller', [
+    '$scope',
+    function($scope, $http) {
+        ...
+        $scope.myTableColumnOrder = [1,0];
+        ...
+    }
+]);
+```
+
+```HTML
+<table draggable="myTableColumnOrder">
+    <thead>
+        <tr>
+            <th id="x">Name</th>
+            <th>Favorite Color</th><th>Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Dan</td>
+            <td>Blue</td><td>1984-07-12</td>
+        </tr>
+        <tr>
+            <td>Alice</td>
+            <td>Green</td><td>1980-07-22</td>
+        </tr>
+    </tbody>
+</table>
+```
 
 ## About
 
